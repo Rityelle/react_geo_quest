@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 
 //MUI
-import { Checkbox, Pagination, TextField, Typography } from "@mui/material";
+import { Checkbox, CircularProgress, Pagination, TextField, Typography } from "@mui/material";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -18,6 +18,11 @@ import GetAppIcon from '@mui/icons-material/GetApp';
 //atoms
 import Button from "@/components/atoms/button";
 import DeleteButton from "@/components/atoms/buttonDelete";
+import ExportButton from "@/components/atoms/buttonExport";
+import SimpleModal from "@/components/atoms/simpleModal";
+
+//organisms
+import CustomModal from "@/components/organisms/Modal";
 
 //types
 import { Country } from "@/types/Country";
@@ -27,21 +32,53 @@ import { getCurrencyName } from "@/utils/currencyName";
 import { isEqual } from "@/utils/helpers";
 import { formatBillions } from "@/utils/formatBillions";
 import { getLanguageOf } from "@/utils/languageOf";
-import ExportButton from "@/components/atoms/buttonExport";
 
 interface Props {
   data: Country[];
   showSaveButton?: boolean; 
   showDeleteButton?: boolean;
   showExportButton?: boolean;
+  delete?: boolean;
 }
 
-const BasicTable: React.FC<Props> = ({ data, showSaveButton, showDeleteButton, showExportButton }) => {
+const BasicTable: React.FC<Props> = ({ 
+  data, 
+  showSaveButton, 
+  showDeleteButton, 
+  showExportButton, 
+}) => {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRows, setSelectedRows] = useState<Country[]>([]);
+  const [open, setOpen] = useState(false);
+  const [openSimpleModal, setOpenSimpleModal] = useState(false);
+  const [modalLabel, setModalLabel] = useState("");
+  const [loading, setLoading] = useState(false);
   const rowsPerPage = 10;
   const router = useRouter();
+
+  //open Modal
+  const handleOpen = (label: string) => { 
+    setModalLabel(label);
+    setOpen(true);
+  };
+
+  //close Modal
+  const handleClose = () => {
+    setOpen(false);
+    setSelectedRows([]);
+  };
+
+  //open Simple Modal
+  const handleOpenSimpleModal = (label: string) => { 
+    setModalLabel(label);
+    setOpenSimpleModal(true);
+  };
+
+  //close Simple Modal
+  const handleCloseSimpleModal = () => {
+    setOpenSimpleModal(false);
+  };
 
   const handleChangePage = (
     event: React.ChangeEvent<unknown>,
@@ -77,14 +114,17 @@ const BasicTable: React.FC<Props> = ({ data, showSaveButton, showDeleteButton, s
   const paginatedData = filteredData.slice(startIndex, endIndex);
 
   const handleSaveToHistory = () => {
+    setLoading(true);
     const savedRowsString = localStorage.getItem("selectedRows");
     const savedRows: Country[] = savedRowsString ? JSON.parse(savedRowsString) : [];
     const updatedRows = [...savedRows, ...selectedRows];
     localStorage.setItem("selectedRows", JSON.stringify(updatedRows));
-    alert("As informações selecionadas foram salvas no histórico!");
+    handleOpen("The selected information has been saved in the history!");
+    setLoading(false);
   };
 
   const handleDeleteFromHistory = () => {
+    setLoading(true);
     const savedRowsString = localStorage.getItem("selectedRows");
     let savedRows: Country[] = savedRowsString ? JSON.parse(savedRowsString) : [];
     savedRows = savedRows.filter(savedCountry => {
@@ -93,8 +133,12 @@ const BasicTable: React.FC<Props> = ({ data, showSaveButton, showDeleteButton, s
       );
     });
     localStorage.setItem("selectedRows", JSON.stringify(savedRows));
-    alert("Os itens selecionados foram removidos do histórico!");
-    router.push("/")
+    handleOpenSimpleModal("Selected items have been removed from history!");
+
+    setTimeout(() =>{
+      router.push("/")
+    }, 5000);
+    setLoading(false);
   };
 
   const handleExportCSV = () => {
@@ -126,6 +170,7 @@ const BasicTable: React.FC<Props> = ({ data, showSaveButton, showDeleteButton, s
     setTimeout(() => {
       URL.revokeObjectURL(url);
       document.body.removeChild(link);
+      setLoading(true);
     }, 200);
   };
   
@@ -159,11 +204,11 @@ const BasicTable: React.FC<Props> = ({ data, showSaveButton, showDeleteButton, s
         />
         
         <div className=" flex flex-row gap-3">
-          { showDeleteButton && selectedRows.length > 0 && <DeleteButton onPress={handleDeleteFromHistory}>  <DeleteOutlineIcon /> Deletar item(s) histórico</DeleteButton> }
-          { showExportButton && <ExportButton onPress={handleExportCSV}> <GetAppIcon /> exportar histórico em CSV</ExportButton> }
+          { showDeleteButton && selectedRows.length > 0 && <DeleteButton onPress={handleDeleteFromHistory}>  <DeleteOutlineIcon /> Delete historical item(s) </DeleteButton> }
+          { showExportButton && <ExportButton onPress={handleExportCSV}> <GetAppIcon /> Export history in CSV </ExportButton> }
         </div>
 
-        { showSaveButton && selectedRows.length > 0 && <Button onPress={handleSaveToHistory}> <StarIcon/> Salvar no histórico</Button> }
+        { showSaveButton && selectedRows.length > 0 && <Button onPress={handleSaveToHistory}> <StarIcon/> Save to history </Button> }
       </div>
       <TableContainer component={Paper} style={{ backgroundColor: "#16181A", marginTop: 20 }}>
         <Table>
@@ -181,7 +226,7 @@ const BasicTable: React.FC<Props> = ({ data, showSaveButton, showDeleteButton, s
           <TableBody style={{ backgroundColor:"#16181A" }}>
             {paginatedData.map((country, index) => (
               <TableRow key={index}>
-                 <TableCell style={{ color:'#ffffff', borderBottom: "1px solid #040507" }}>
+                 <TableCell align="center" style={{ color:'#ffffff', borderBottom: "1px solid #040507" }}>
                   <Checkbox
                     style={{
                        color: '#fff' 
@@ -190,7 +235,7 @@ const BasicTable: React.FC<Props> = ({ data, showSaveButton, showDeleteButton, s
                     onChange={() => handleRowSelect(country)}
                   />
                  </TableCell>
-                <TableCell style={{ color:'#ffffff', borderBottom: "1px solid #040507" }}>
+                <TableCell align="center" style={{ color:'#ffffff', borderBottom: "1px solid #040507" }}>
                   <Typography component="div" className="flex flex-row items-center gap-4">
                     <img src={country.flags.png} alt={country.flags.alt} className="w-10 h-8"  />
                     {country.name.official}
@@ -216,6 +261,8 @@ const BasicTable: React.FC<Props> = ({ data, showSaveButton, showDeleteButton, s
           }}
         />
       </TableContainer>
+      <SimpleModal open={openSimpleModal} onClose={handleCloseSimpleModal} label={modalLabel} />
+      <CustomModal open={open} onClose={handleClose} label={modalLabel} onPress={() => router.push('/historic')} />
     </>
   );
 };
